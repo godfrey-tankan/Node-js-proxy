@@ -7,7 +7,8 @@ const userRoutes = require("./routes/userRoutes");
 const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
-const WebSocket = require("ws"); // Import the WebSocket library
+const WebSocket = require("ws"); 
+const { getAllUsersData } = require("./controllers/authController");
 
 dbConnect();
 
@@ -18,7 +19,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 
-// Create an HTTP server and integrate it with Socket.io
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -26,11 +26,28 @@ const io = new Server(server, {
   },
 });
 
-// Connect to the Django WebSocket server
+// Connecting to the Django WebSocket server
 const djangoSocket = new WebSocket("ws://localhost:8000/ws/chat/");
 
-djangoSocket.on("open", () => {
+djangoSocket.on("open", async () => {
   console.log("Connected to Django WebSocket server");
+
+  try {
+    const users = await getAllUsersData();
+    console.log("Fetched users:", users);
+
+    const userList = users.map(user => ({
+      username: user.username,
+      email: user.email,
+    }));
+
+    djangoSocket.send(JSON.stringify({
+      type: "all_users",
+      users: userList,
+    }));
+  } catch (error) {
+    console.error("Error fetching users:", error.message);
+  }
 });
 
 djangoSocket.on("message", (data) => {
@@ -67,7 +84,7 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.user.username);
 
   socket.on("send_message", (msg) => {
-    console.log("Message received:....", msg);
+    console.log("Message received:", msg);
     // Sending the message to the Django WebSocket
     if (djangoSocket.readyState === WebSocket.OPEN) {
       djangoSocket.send(
