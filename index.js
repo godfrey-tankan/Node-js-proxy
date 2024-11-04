@@ -34,7 +34,6 @@ djangoSocket.on("open", async () => {
 
   try {
     const users = await getAllUsersData();
-    console.log("Fetched users:", users);
 
     const userList = users.map(user => ({
       username: user.username,
